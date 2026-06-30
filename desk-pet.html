@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>桌面宠物 · 逐帧动画版</title>
+<style>
+/* ============================================================
+   桌面宠物 - 48帧精灵图逐帧动画版
+   
+   素材结构: pet-sprites/sprite_01.png ~ sprite_48.png
+   6行×8列 = 48帧，每个动作8帧循环
+   
+   Row 1 (01-08): 正面待机行走循环
+   Row 2 (09-16): 侧面右走
+   Row 3 (17-24): 侧面左走
+   Row 4 (25-32): 挥手 👋
+   Row 5 (33-40): 惊讶/开心 😮
+   Row 6 (41-48): 害羞/说话 😊
+   
+   ★IMAGE★ 替换素材：覆盖 pet-sprites/ 目录下对应 PNG 即可
+   ============================================================ */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ---- 宠物主容器：悬浮页面最顶层 ---- */
+.desk-pet-wrapper {
+  position: fixed;
+  z-index: 2147483647;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: none;
+}
+.desk-pet-wrapper.dragging { cursor: grabbing; }
+.desk-pet-wrapper.minimized .pet-body { display: none; }
+.desk-pet-wrapper.minimized .pet-minimize-btn { display: none; }
+.desk-pet-wrapper.minimized .pet-buttons { display: none; }
+.desk-pet-wrapper.minimized .pet-bubble { display: none; }
+
+/* ---- 宠物主体 ---- */
+.pet-body {
+  position: relative;
+  width: clamp(100px, 15vw, 160px);
+  height: clamp(100px, 15vw, 160px);
+}
+
+/* ---- 宠物精灵图（单张 img 切换 src） ---- */
+.pet-sprite {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  object-fit: contain;
+  display: block;
+  pointer-events: none;
+  /* 平滑切换 */
+  transition: opacity 0.05s ease;
+}
+
+/* ---- 拖拽抖动 ---- */
+.pet-sprite.dragging {
+  animation: dragWiggle 0.35s ease infinite;
+}
+/* ---- 举高高弹跳 ---- */
+.pet-body.lifting {
+  animation: liftBounce 1.2s cubic-bezier(0.34,1.56,0.64,1) forwards;
+}
+/* ---- 摸头害羞 ---- */
+.pet-body.patting {
+  animation: patShrink 1.5s ease forwards;
+}
+/* ---- 亲亲靠近 ---- */
+.pet-body.kissing {
+  animation: kissBounce 1.4s ease forwards;
+}
+/* ---- 牵手摇摆 ---- */
+.pet-body.handholding {
+  animation: handSwing 1.4s ease forwards;
+}
+
+@keyframes dragWiggle {
+  0%,100% { transform: rotate(1.5deg) scale(1.05); }
+  50%     { transform: rotate(-1.5deg) scale(1.02); }
+}
+@keyframes liftBounce {
+  0%   { transform: translateY(0) scale(1); }
+  25%  { transform: translateY(-40px) scale(1.1); }
+  45%  { transform: translateY(-50px) scale(1.08); }
+  65%  { transform: translateY(-30px) scale(1.12); }
+  80%  { transform: translateY(-8px) scale(1.04); }
+  100% { transform: translateY(0) scale(1); }
+}
+@keyframes patShrink {
+  0%   { transform: translateY(0) scale(1); }
+  25%  { transform: translateY(3px) scale(0.92); }
+  55%  { transform: translateY(5px) scale(0.88); }
+  100% { transform: translateY(0) scale(1); }
+}
+@keyframes kissBounce {
+  0%   { transform: rotate(0deg) scale(1); }
+  20%  { transform: rotate(-10deg) scale(1.06); }
+  45%  { transform: rotate(-8deg) scale(1.12); }
+  70%  { transform: rotate(-3deg) scale(1.05); }
+  100% { transform: rotate(0deg) scale(1); }
+}
+@keyframes handSwing {
+  0%   { transform: rotate(0deg) translateX(0); }
+  25%  { transform: rotate(-8deg) translateX(10px); }
+  55%  { transform: rotate(5deg) translateX(-4px); }
+  100% { transform: rotate(0deg) translateX(0); }
+}
+
+/* ---- 腮红 (亲亲) ---- */
+.pet-blush {
+  position: absolute; bottom: 48%; width: 18px; height: 12px;
+  background: radial-gradient(ellipse, rgba(255,140,160,0.7) 0%, transparent 70%);
+  border-radius: 50%; opacity: 0; transition: opacity 0.3s; pointer-events: none;
+}
+.pet-blush.left  { left: 32%; }
+.pet-blush.right { left: auto; right: 32%; }
+.pet-blush.active { opacity: 1; }
+
+/* ---- 头顶爱心 (摸头) ---- */
+.pet-heart-top {
+  position: absolute; top: -22px; left: 50%;
+  transform: translateX(-50%) scale(0); font-size: 28px;
+  opacity: 0; pointer-events: none;
+  transition: all 0.4s cubic-bezier(0.68,-0.55,0.265,1.55);
+}
+.pet-heart-top.active { transform: translateX(-50%) scale(1); opacity: 1; }
+
+/* ---- 气泡 ---- */
+.pet-bubble {
+  position: absolute; bottom: 105%; left: 50%;
+  transform: translateX(-50%) scale(0);
+  background: rgba(255,255,255,0.95); border-radius: 18px;
+  padding: 8px 16px; font-size: 13px; color: #D4687C;
+  white-space: nowrap; letter-spacing: 1px;
+  box-shadow: 0 4px 18px rgba(255,105,180,0.18); pointer-events: none;
+  transition: transform 0.35s cubic-bezier(0.68,-0.55,0.265,1.55);
+  font-family: "PingFang SC","Microsoft YaHei","苹方",sans-serif;
+}
+.pet-bubble::after {
+  content: ""; position: absolute; top: 100%; left: 50%;
+  transform: translateX(-50%); border: 7px solid transparent;
+  border-top-color: rgba(255,255,255,0.95);
+}
+.pet-bubble.show { transform: translateX(-50%) scale(1); }
+
+/* ---- 最小化按钮 ---- */
+.pet-minimize-btn {
+  position: absolute; top: -10px; right: -8px;
+  width: 26px; height: 26px;
+  background: rgba(255,255,255,0.9);
+  border: 1.5px solid rgba(255,105,180,0.25); border-radius: 50%;
+  cursor: pointer; font-size: 14px; color: #D4687C;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  transition: all 0.2s;
+  opacity: 0; pointer-events: none;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 10;
+}
+.pet-body:hover .pet-minimize-btn,
+.pet-buttons.visible ~ .pet-minimize-btn { opacity: 1; pointer-events: auto; }
+.pet-minimize-btn:hover { background: #FFB6C1; color: #fff; transform: scale(1.1); }
+
+/* ---- 最小化图标 ---- */
+.pet-minimized-icon {
+  display: none; width: 48px; height: 48px;
+  background: linear-gradient(135deg, #FFB6C1, #FFC0CB); border-radius: 50%;
+  cursor: pointer; font-size: 26px;
+  box-shadow: 0 3px 14px rgba(255,105,180,0.28);
+  transition: transform 0.3s cubic-bezier(0.68,-0.55,0.265,1.55);
+  align-items: center; justify-content: center;
+}
+.pet-minimized-icon:hover { transform: scale(1.15); }
+.desk-pet-wrapper.minimized .pet-minimized-icon { display: flex; }
+
+/* ---- 互动按钮面板 ---- */
+.pet-buttons {
+  position: absolute; top: -200px; left: 50%;
+  transform: translateX(-50%) scale(0);
+  display: flex; flex-direction: column; gap: 8px;
+  opacity: 0; transition: all 0.35s cubic-bezier(0.68,-0.55,0.265,1.55);
+  pointer-events: none; z-index: 20;
+}
+.pet-buttons.visible {
+  transform: translateX(-50%) scale(1); opacity: 1; pointer-events: auto;
+}
+.pet-btn {
+  padding: 7px 16px; border: none; border-radius: 20px;
+  background: rgba(255,255,255,0.92); color: #D4687C;
+  font-size: 13px; cursor: pointer; white-space: nowrap; letter-spacing: 1px;
+  box-shadow: 0 3px 12px rgba(255,105,180,0.15); transition: all 0.2s;
+  font-family: "PingFang SC","Microsoft YaHei","苹方",sans-serif;
+}
+.pet-btn:hover {
+  background: #FFB6C1; color: #fff; transform: scale(1.08);
+  box-shadow: 0 4px 16px rgba(255,105,180,0.3);
+}
+.pet-btn:active { transform: scale(0.95); }
+
+/* ---- 粒子 ---- */
+.pet-particles {
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+  pointer-events: none; z-index: 5;
+}
+.pet-particle {
+  position: absolute; font-size: 20px; pointer-events: none;
+  animation: particleFly 1.4s ease-out forwards;
+}
+@keyframes particleFly {
+  0%   { opacity: 1; transform: translate(0,0) scale(0.3); }
+  60%  { opacity: 0.8; }
+  100% { opacity: 0; transform: translate(var(--px),var(--py)) scale(1.2); }
+}
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     桌面宠物 HTML
+     素材路径: pet-sprites/sprite_XX.png
+     ★IMAGE★ 修改 SPRITE_BASE 常量可更换图片目录
+     ============================================================ -->
+<div class="desk-pet-wrapper" id="petWrapper">
+  <div class="pet-body" id="petBody">
+    <!-- 精灵图：通过 src 切换实现逐帧动画 -->
+    <img class="pet-sprite" id="petSprite"
+         src="pet-sprites/sprite_01.png" alt="宠物" draggable="false">
+
+    <!-- 腮红遮罩 -->
+    <div class="pet-blush left" id="blushL"></div>
+    <div class="pet-blush right" id="blushR"></div>
+
+    <!-- 头顶爱心 -->
+    <div class="pet-heart-top" id="heartTop">💕</div>
+
+    <!-- 粒子 -->
+    <div class="pet-particles" id="petParticles"></div>
+
+    <!-- 气泡 -->
+    <div class="pet-bubble" id="petBubble"></div>
+
+    <!-- 最小化 -->
+    <button class="pet-minimize-btn" id="minimizeBtn" title="最小化">−</button>
+  </div>
+
+  <!-- 互动按钮 -->
+  <div class="pet-buttons" id="petButtons">
+    <button class="pet-btn" data-action="lift">🙌 举高高</button>
+    <button class="pet-btn" data-action="headpat">✋ 摸摸头</button>
+    <button class="pet-btn" data-action="kiss">💋 亲亲脸</button>
+    <button class="pet-btn" data-action="handhold">🤝 牵牵手</button>
+  </div>
+
+  <!-- 恢复图标 -->
+  <div class="pet-minimized-icon" id="minimizedIcon">🐾</div>
+</div>
+
+<script>
+/* ============================================================
+   桌面宠物 · 48帧逐帧动画引擎
+   ============================================================ */
+
+// ---- 素材路径配置 ----
+// ★IMAGE★ 修改此路径可更换整个素材目录
+const SPRITE_BASE = 'pet-sprites/sprite_';
+
+/** 生成帧文件路径：sprite_01.png, sprite_02.png ... */
+function frame(n) {
+  const num = String(n).padStart(2, '0');
+  return SPRITE_BASE + num + '.png';
+}
+
+/* ---- 动画帧序列定义 ----
+   每行动作 = 8 帧，编号规则: Row N → (N-1)*8 + (1~8)
+*/
+const ANIMS = {
+  // 动作名:         [起始帧, 帧数, 每帧时长ms, 循环?]
+  idle:       { start:  1, frames: 8, speed: 160, loop: true  },  // Row 1: 正面待机行走
+  lift:       { start: 33, frames: 8, speed: 120, loop: false },  // Row 5: 举高高惊讶
+  headpat:    { start: 41, frames: 8, speed: 150, loop: false },  // Row 6: 害羞摸头
+  kiss:       { start: 41, frames: 8, speed: 100, loop: false },  // Row 6: 亲亲(快放)
+  handhold:   { start: 25, frames: 8, speed: 130, loop: false },  // Row 4: 挥手牵手
+};
+
+// 眨眼帧（Row 1 中闭眼/半闭的帧）
+const BLINK_FRAMES = [4, 5];
+
+// ---- DOM ----
+const wrapper      = document.getElementById('petWrapper');
+const petBody      = document.getElementById('petBody');
+const petSprite    = document.getElementById('petSprite');
+const bubble       = document.getElementById('petBubble');
+const buttons      = document.getElementById('petButtons');
+const minimizeBtn  = document.getElementById('minimizeBtn');
+const minimizedIcon= document.getElementById('minimizedIcon');
+const particlesEl  = document.getElementById('petParticles');
+const heartTop     = document.getElementById('heartTop');
+const blushL       = document.getElementById('blushL');
+const blushR       = document.getElementById('blushR');
+
+// ---- 状态 ----
+let petX = window.innerWidth - 200;
+let petY = window.innerHeight - 200;
+let isDragging    = false;
+let dragStartX = 0, dragStartY = 0, petStartX = 0, petStartY = 0;
+let isAnimating   = false;
+let buttonsVisible = false;
+let isMinimized   = false;
+let currentAnim   = 'idle';   // 当前播放的动画名
+
+// ---- 动画引擎状态 ----
+let animTimer     = null;     // setInterval id
+let animFrameIdx  = 0;        // 当前帧序号 (0-based)
+let animFrames    = [];       // 当前动画的帧路径数组
+let animSpeed     = 160;      // 当前动画每帧时长 ms
+let animLoop      = true;     // 当前动画是否循环
+let animCallback  = null;     // 非循环动画结束回调
+
+// ---- 预加载所有帧 ----
+function preloadAll() {
+  for (let id = 1; id <= 48; id++) {
+    const img = new Image();
+    img.src = frame(id);
+  }
+}
+preloadAll();
+
+// ---- 初始化位置 ----
+wrapper.style.left = petX + 'px';
+wrapper.style.top  = petY + 'px';
+
+// ============================================================
+//  动画引擎核心
+// ============================================================
+
+/** 启动一个动画序列 */
+function playAnim(name) {
+  stopAnim();
+  const cfg = ANIMS[name];
+  if (!cfg) return;
+
+  currentAnim   = name;
+  animFrameIdx  = 0;
+  animSpeed     = cfg.speed;
+  animLoop      = cfg.loop;
+  animCallback  = null;
+  animFrames    = [];
+
+  for (let i = 0; i < cfg.frames; i++) {
+    animFrames.push(frame(cfg.start + i));
+  }
+
+  // 显示第一帧
+  petSprite.src = animFrames[0];
+
+  // 启动帧定时器
+  animTimer = setInterval(tickFrame, animSpeed);
+}
+
+/** 单帧前进 */
+function tickFrame() {
+  if (isMinimized) return;
+
+  animFrameIdx++;
+  if (animFrameIdx >= animFrames.length) {
+    if (animLoop) {
+      animFrameIdx = 0;  // 循环
+    } else {
+      // 非循环动画结束
+      stopAnim();
+      if (animCallback) {
+        const cb = animCallback;
+        animCallback = null;
+        cb();
+      }
+      return;
+    }
+  }
+  petSprite.src = animFrames[animFrameIdx];
+}
+
+/** 停止动画 */
+function stopAnim() {
+  if (animTimer) { clearInterval(animTimer); animTimer = null; }
+  animFrames = [];
+  animFrameIdx = 0;
+  animCallback = null;
+}
+
+/** 动画播完后回调 */
+function onAnimEnd(fn) {
+  animCallback = fn;
+}
+
+// ============================================================
+//  待机系统：循环行走 + 随机眨眼
+// ============================================================
+
+let blinkTimer = null;
+
+function startIdle() {
+  clearBlinkTimer();
+  playAnim('idle');
+  scheduleBlink();
+}
+
+function clearIdleTimers() {
+  stopAnim();
+  clearBlinkTimer();
+}
+
+/** 随机眨眼：在 idle 循环中暂停到眨眼帧 */
+function scheduleBlink() {
+  const delay = 3000 + Math.random() * 7000; // 3~10s 眨眼一次
+  blinkTimer = setTimeout(() => {
+    // 仅在正在播放 idle 动画时插入眨眼
+    if (isDragging || isAnimating || isMinimized || currentAnim !== 'idle') {
+      scheduleBlink();
+      return;
+    }
+
+    // 选一个眨眼帧
+    const blinkFrame = BLINK_FRAMES[Math.floor(Math.random() * BLINK_FRAMES.length)];
+
+    // 暂停动画定时器
+    if (animTimer) clearInterval(animTimer);
+
+    // 显示眨眼帧
+    petSprite.src = frame(blinkFrame);
+
+    // 150ms 后恢复
+    setTimeout(() => {
+      if (isDragging || isAnimating || isMinimized || currentAnim !== 'idle') {
+        scheduleBlink();
+        return;
+      }
+      // 继续 idle 循环
+      animFrameIdx = blinkFrame; // 从眨眼帧继续
+      animTimer = setInterval(tickFrame, ANIMS.idle.speed);
+      scheduleBlink();
+    }, 150);
+  }, delay);
+}
+
+function clearBlinkTimer() {
+  clearTimeout(blinkTimer);
+  blinkTimer = null;
+}
+
+// ============================================================
+//  拖拽系统
+// ============================================================
+
+function onDragStart(e) {
+  if (e.target.closest('.pet-btn') || e.target.closest('.pet-minimize-btn')) return;
+  e.preventDefault();
+
+  isDragging = true;
+  wrapper.classList.add('dragging');
+
+  const cx = e.touches ? e.touches[0].clientX : e.clientX;
+  const cy = e.touches ? e.touches[0].clientY : e.clientY;
+  dragStartX = cx; dragStartY = cy;
+  petStartX = petX; petStartY = petY;
+
+  hideButtons();
+  clearIdleTimers();
+  petSprite.src = frame(1); // 待机第一帧
+  petSprite.classList.add('dragging');
+}
+
+function onDragMove(e) {
+  if (!isDragging) return;
+  e.preventDefault();
+  const cx = e.touches ? e.touches[0].clientX : e.clientX;
+  const cy = e.touches ? e.touches[0].clientY : e.clientY;
+  const dx = cx - dragStartX, dy = cy - dragStartY;
+  const pw = petBody.offsetWidth, ph = petBody.offsetHeight;
+  petX = Math.max(0, Math.min(petStartX + dx, window.innerWidth - pw));
+  petY = Math.max(0, Math.min(petStartY + dy, window.innerHeight - ph));
+  wrapper.style.left = petX + 'px';
+  wrapper.style.top  = petY + 'px';
+}
+
+function onDragEnd(e) {
+  if (!isDragging) return;
+  isDragging = false;
+  wrapper.classList.remove('dragging');
+  petSprite.classList.remove('dragging');
+
+  // 回弹
+  petSprite.style.transition = 'transform 0.35s cubic-bezier(0.34,1.56,0.64,1)';
+  petSprite.style.transform = 'scale(0.9)';
+  setTimeout(() => {
+    petSprite.style.transform = 'scale(1)';
+    petSprite.style.transition = 'opacity 0.05s ease';
+    startIdle();
+  }, 50);
+}
+
+petBody.addEventListener('mousedown', onDragStart);
+petBody.addEventListener('touchstart', onDragStart, { passive: false });
+document.addEventListener('mousemove', onDragMove);
+document.addEventListener('touchmove', onDragMove, { passive: false });
+document.addEventListener('mouseup', onDragEnd);
+document.addEventListener('touchend', onDragEnd);
+
+// ============================================================
+//  点击弹出/隐藏按钮
+// ============================================================
+
+petBody.addEventListener('click', function(e) {
+  if (isDragging) return;
+  if (e.target.closest('.pet-btn') || e.target.closest('.pet-minimize-btn')) return;
+  if (isAnimating) return;
+  e.stopPropagation();
+  toggleButtons();
+});
+
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('#petWrapper')) hideButtons();
+});
+
+function toggleButtons() { buttonsVisible ? hideButtons() : showButtons(); }
+function showButtons()  { buttonsVisible = true; buttons.classList.add('visible'); }
+function hideButtons()  { buttonsVisible = false; buttons.classList.remove('visible'); }
+
+// ============================================================
+//  互动动作
+// ============================================================
+
+buttons.addEventListener('click', function(e) {
+  const btn = e.target.closest('.pet-btn');
+  if (!btn) return;
+  hideButtons();
+  const act = btn.dataset.action;
+  if      (act === 'lift')     doLift();
+  else if (act === 'headpat')  doHeadpat();
+  else if (act === 'kiss')     doKiss();
+  else if (act === 'handhold') doHandhold();
+});
+
+// 举高高 → Row 5 (33-40) 惊讶动画 + 弹跳
+function doLift() {
+  if (isAnimating) return;
+  isAnimating = true; clearIdleTimers();
+
+  playAnim('lift');
+  petBody.classList.add('lifting');
+  showBubble('飞高高~ ✨');
+  spawnParticles('✨', 10);
+
+  onAnimEnd(() => {
+    petBody.classList.remove('lifting');
+    isAnimating = false;
+    startIdle();
+  });
+}
+
+// 摸摸头 → Row 6 (41-48) 害羞动画 + 收缩
+function doHeadpat() {
+  if (isAnimating) return;
+  isAnimating = true; clearIdleTimers();
+
+  playAnim('headpat');
+  petBody.classList.add('patting');
+  showBubble('好舒服呀~');
+  showHeartTop();
+  spawnParticles('💕', 6);
+
+  onAnimEnd(() => {
+    petBody.classList.remove('patting');
+    hideHeartTop();
+    isAnimating = false;
+    startIdle();
+  });
+}
+
+// 亲亲脸 → Row 6 (41-48) 快放 + 靠近动画
+function doKiss() {
+  if (isAnimating) return;
+  isAnimating = true; clearIdleTimers();
+
+  playAnim('kiss');
+  petBody.classList.add('kissing');
+  showBubble('mua! 💋');
+  showBlush();
+  spawnParticles('💋', 8);
+
+  onAnimEnd(() => {
+    petBody.classList.remove('kissing');
+    hideBlush();
+    isAnimating = false;
+    startIdle();
+  });
+}
+
+// 牵牵手 → Row 4 (25-32) 挥手动画 + 摇摆
+function doHandhold() {
+  if (isAnimating) return;
+  isAnimating = true; clearIdleTimers();
+
+  playAnim('handhold');
+  petBody.classList.add('handholding');
+  showBubble('牵牵小手~ 🤝');
+  spawnParticles('🤝', 5);
+
+  onAnimEnd(() => {
+    petBody.classList.remove('handholding');
+    isAnimating = false;
+    startIdle();
+  });
+}
+
+// ============================================================
+//  最小化 / 恢复
+// ============================================================
+
+minimizeBtn.addEventListener('click', e => { e.stopPropagation(); minimize(); });
+minimizedIcon.addEventListener('click', e => { e.stopPropagation(); restore(); });
+
+function minimize() {
+  isMinimized = true; hideButtons(); clearIdleTimers();
+  wrapper.classList.add('minimized');
+}
+function restore() {
+  isMinimized = false; wrapper.classList.remove('minimized');
+  startIdle();
+}
+
+// ============================================================
+//  特效辅助
+// ============================================================
+
+function showBubble(text) {
+  bubble.textContent = text;
+  bubble.classList.add('show');
+  clearTimeout(bubble._t);
+  bubble._t = setTimeout(() => bubble.classList.remove('show'), 2200);
+}
+function showHeartTop()  { heartTop.classList.add('active'); }
+function hideHeartTop()  { heartTop.classList.remove('active'); }
+function showBlush()     { blushL.classList.add('active'); blushR.classList.add('active'); }
+function hideBlush()     { blushL.classList.remove('active'); blushR.classList.remove('active'); }
+
+function spawnParticles(emoji, count) {
+  for (let i = 0; i < count; i++) {
+    const p = document.createElement('span');
+    p.className = 'pet-particle'; p.textContent = emoji;
+    const ang = (Math.PI*2*i/count)+(Math.random()-0.5)*0.8;
+    const d = 40+Math.random()*70;
+    p.style.setProperty('--px', Math.cos(ang)*d+'px');
+    p.style.setProperty('--py', Math.sin(ang)*d-25+'px');
+    p.style.left = '50%'; p.style.top = '45%';
+    p.style.animationDelay = (Math.random()*0.3)+'s';
+    particlesEl.appendChild(p);
+    setTimeout(() => p.remove(), 1700);
+  }
+}
+
+// ---- 窗口变化修正 ----
+window.addEventListener('resize', () => {
+  const pw = petBody.offsetWidth, ph = petBody.offsetHeight;
+  petX = Math.max(0, Math.min(petX, window.innerWidth - pw));
+  petY = Math.max(0, Math.min(petY, window.innerHeight - ph));
+  wrapper.style.left = petX+'px'; wrapper.style.top = petY+'px';
+});
+
+// ---- 启动 ----
+startIdle();
+console.log('🐾 桌面宠物已就绪！（48帧逐帧动画版）');
+console.log('  素材: pet-sprites/sprite_01.png ~ sprite_48.png');
+console.log('  Row 1: 待机行走 | Row 4: 挥手 | Row 5: 惊讶 | Row 6: 害羞');
+console.log('  ★IMAGE★ 替换素材覆盖 pet-sprites/ 目录下对应 PNG 即可');
+</script>
+
+<!--
+  ★SOUND★ 音效预留位置：
+  在 doLift/doHeadpat/doKiss/doHandhold 函数中添加：
+  new Audio('sound.mp3').play().catch(()=>{});
+-->
+
+</body>
+</html>
