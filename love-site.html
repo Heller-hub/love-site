@@ -542,7 +542,7 @@ const ANIM_CONFIG = {
 };
 
 let framesLoaded = 0;
-let totalFrames = 24;
+let totalFrames = 20;
 
 function loadFrames() {
   for (let anim of ['idle','walk','wave']) {
@@ -550,20 +550,23 @@ function loadFrames() {
       const img = new Image();
       const src = 'assets/' + anim + '/' + String(i).padStart(2,'0') + '.png';
       img.onload = () => { framesLoaded++; };
+      img.onerror = () => { framesLoaded++; };  // 加载失败也算一次（wave 只有4帧）
       img.src = src;
       SPRITE_FRAMES[anim].push(img);
     }
   }
 
-  // 等所有帧加载完毕
+  // 等所有帧加载完毕，最多等 3 秒兜底
   function checkReady() {
-    if (framesLoaded >= totalFrames || framesLoaded >= 20) {
+    if (framesLoaded >= totalFrames) {
       startPetLoop();
     } else {
       requestAnimationFrame(checkReady);
     }
   }
   requestAnimationFrame(checkReady);
+  // 兜底：3秒后无论如何都启动
+  setTimeout(() => { startPetLoop(); }, 3000);
 }
 
 // ---- 渲染 ----
@@ -729,7 +732,10 @@ function autoWalk() {
 }
 
 // ---- 启动 ----
+let petStarted = false;
 function startPetLoop() {
+  if (petStarted) return;  // 防止重复调用
+  petStarted = true;
   renderPet();
   setTimeout(() => say('你好呀~ 🎀'), 1500);
   setInterval(() => randomTalk(), 15000 + Math.random() * 10000);
