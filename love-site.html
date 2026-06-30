@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>给你的一句话</title>
+<title>致bb</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -293,58 +293,6 @@
     box-shadow: 0 4px 15px rgba(160, 160, 160, 0.2);
   }
 
-  /* ====== 页面5：浪漫页 ====== */
-  #page5 {
-    background: linear-gradient(180deg, #FFE4EC 0%, #FFC0CB 40%, #FFB6C1 100%);
-  }
-  #page5 .romantic-title {
-    font-size: clamp(1.8rem, 7vw, 2.8rem);
-    color: #D4687C;
-    text-align: center;
-    margin-bottom: 30px;
-    animation: fadeInUp 1s ease;
-    line-height: 1.5;
-  }
-  #page5 .video-area {
-    width: 90%;
-    max-width: 400px;
-    aspect-ratio: 16/9;
-    border: 4px dashed #FFB6C1;
-    border-radius: 24px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    background: rgba(255,255,255,0.5);
-    transition: all 0.3s ease;
-    position: relative;
-    overflow: hidden;
-    animation: fadeInUp 1.2s ease;
-  }
-  #page5 .video-area:hover, #page5 .video-area:active {
-    border-color: #FF69B4;
-    background: rgba(255,255,255,0.7);
-  }
-  #page5 .video-area .upload-icon {
-    font-size: 3rem;
-    margin-bottom: 10px;
-  }
-  #page5 .video-area .upload-text {
-    color: #D4687C;
-    font-size: 1rem;
-    letter-spacing: 2px;
-  }
-  #page5 .video-area video {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    border-radius: 24px;
-  }
-  #page5 .video-area.has-video {
-    border-style: solid;
-    padding: 0;
-  }
 
   /* ====== 页面6：失落页 ====== */
   #page6 {
@@ -489,7 +437,6 @@
   }
 
   /* 隐藏的 file input */
-  #videoInput { display: none; }
 
   /* 响应式调整 */
 
@@ -722,27 +669,6 @@
     .letter-nav button { padding: 8px 22px; }
   }
 
-  /* page5 下一页导航 */
-  #page5 .page5-next {
-    position: absolute;
-    bottom: 35px;
-    left: 50%;
-    transform: translateX(-50%);
-    padding: 8px 24px;
-    border-radius: 50px;
-    font-family: inherit;
-    font-size: clamp(0.85rem, 3vw, 1rem);
-    color: #D4687C;
-    cursor: pointer;
-    letter-spacing: 3px;
-    background: rgba(255, 105, 180, 0.12);
-    border: 1.5px solid rgba(255, 105, 180, 0.2);
-    transition: all 0.3s ease;
-  }
-  #page5 .page5-next:active {
-    background: rgba(255, 105, 180, 0.25);
-    transform: translateX(-50%) scale(0.95);
-  }
 </style>
 </head>
 <body>
@@ -822,17 +748,6 @@
   <div class="choice-back" onclick="goToPage('page3')">↩ 上一页</div>
 </div>
 
-<!-- ==================== 页面5：浪漫页 ==================== -->
-<div class="page hidden" id="page5">
-  <div class="romantic-title">💕 这是我们的小天地 💕</div>
-  <div class="video-area" id="videoArea" onclick="document.getElementById('videoInput').click()">
-    <div class="upload-icon">🎬</div>
-    <div class="upload-text">点击上传我们的回忆视频</div>
-  </div>
-  <input type="file" id="videoInput" accept="video/*" onchange="handleVideoUpload(event)">
-  <div class="page5-next" onclick="goToPage('page1')">↩ 回到首页</div>
-</div>
-
 <!-- ==================== 页面6：失落页 ==================== -->
 <div class="page hidden" id="page6">
   <div class="sad-title">可惜不是你</div>
@@ -863,9 +778,6 @@ function goToPage(pageId) {
   if (pageId === 'page2' || pageId === 'page3') {
     target.scrollTop = 0;
   }
-  if (pageId === 'page5') {
-    spawnPetals();
-  }
   if (pageId === 'page6') {
     spawnRain();
     setupMusic();
@@ -876,7 +788,6 @@ function resetAll() {
   document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
   document.getElementById('page1').classList.remove('hidden');
   stopMusic();
-  clearPetals();
   clearRain();
 }
 
@@ -903,7 +814,7 @@ function sendNotification(choice) {
 
 function chooseYes() {
   sendNotification('愿意');
-  goToPage('page5');
+  goToPage('page1');  // 跳回首页
 }
 
 function chooseNo() {
@@ -911,23 +822,7 @@ function chooseNo() {
   goToPage('page6');
 }
 
-// ====== 视频上传 ======
-function handleVideoUpload(event) {
-  const file = event.target.files[0];
-  if (!file) return;
 
-  const videoArea = document.getElementById('videoArea');
-  const video = document.createElement('video');
-  video.controls = true;
-  video.autoplay = true;
-  video.playsInline = true;
-  video.src = URL.createObjectURL(file);
-
-  videoArea.innerHTML = '';
-  videoArea.appendChild(video);
-  videoArea.classList.add('has-video');
-  videoArea.onclick = null;
-}
 
 // ====== 音乐播放（网易云外链 + Web Audio 兜底） ======
 let isMusicPlaying = false;
@@ -1059,28 +954,9 @@ function spawnHearts(containerId, count) {
   }
 }
 
-// ====== 花瓣飘落（页面5） ======
-let petalInterval = null;
-function spawnPetals() {
-  clearPetals();
-  const petals = ['🌸', '🩷', '💮', '🌷', '✿', '❀'];
-  function addPetal() {
-    const petal = document.createElement('span');
-    petal.className = 'petal';
-    petal.textContent = petals[Math.floor(Math.random() * petals.length)];
-    petal.style.left = Math.random() * 100 + '%';
-    petal.style.fontSize = (0.8 + Math.random() * 1.8) + 'rem';
-    petal.style.animationDuration = (4 + Math.random() * 6) + 's';
-    petal.style.animationDelay = Math.random() * 2 + 's';
-    document.getElementById('page5').appendChild(petal);
-    setTimeout(() => petal.remove(), 8000);
-  }
+
   for (let i = 0; i < 15; i++) addPetal();
   petalInterval = setInterval(addPetal, 800);
-}
-function clearPetals() {
-  if (petalInterval) clearInterval(petalInterval);
-  document.querySelectorAll('#page5 .petal').forEach(p => p.remove());
 }
 
 // ====== 雨滴（页面6） ======
